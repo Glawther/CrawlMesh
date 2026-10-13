@@ -58,3 +58,17 @@ def test_monitors_and_metrics_lifecycle():
     m = metrics_resp.json()
     assert m["total_jobs"] >= 1
     assert m["active_monitors"] >= 1
+
+
+def test_public_api_connectors():
+    fx_resp = client.get("/api/v1/connectors/fx")
+    assert fx_resp.status_code == 200
+    fx = fx_resp.json()
+    assert "USD_BRL" in fx
+    assert fx["USD_BRL"] > 0
+
+    ip_resp = client.get("/api/v1/connectors/ip/8.8.8.8")
+    assert ip_resp.status_code == 200
+    ip_data = ip_resp.json()
+    assert ip_data["ip"] == "8.8.8.8"
+    assert "country" in ip_data

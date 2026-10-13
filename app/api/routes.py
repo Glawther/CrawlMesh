@@ -129,3 +129,24 @@ async def delete_proxy(node_id: str):
     if not removed:
         raise HTTPException(status_code=404, detail="Proxy node not found")
     return {"deleted": True, "id": node_id}
+
+
+@router.get("/connectors/fx")
+async def get_live_exchange_rates():
+    from app.engine.public_connectors import public_connectors
+
+    return await public_connectors.get_live_fx_rates()
+
+
+@router.get("/connectors/ip/{ip_address}")
+async def inspect_ip_telemetry(ip_address: str):
+    from app.engine.public_connectors import public_connectors
+
+    return await public_connectors.inspect_ip_network(ip_address)
+
+
+@router.get("/connectors/catalog")
+async def search_public_catalog(q: str = "laptop", limit: int = 5):
+    from app.engine.public_connectors import public_connectors
+
+    return await public_connectors.fetch_public_catalog_products(query=q, limit=limit)
