@@ -21,7 +21,7 @@ async def lifespan(application: FastAPI):
 app = FastAPI(
     title=settings.APP_NAME,
     version=settings.APP_VERSION,
-    description="Distributed Web Scraping, Clean Markdown Extraction & Price Intelligence Engine",
+    description="Coletor web para conversão de HTML em Markdown e monitoramento de preços.",
     lifespan=lifespan,
 )
 

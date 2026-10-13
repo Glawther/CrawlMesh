@@ -1,63 +1,44 @@
 # CrawlMesh
 
-Infraestrutura distribuída para extração de dados web, conversão de HTML em Markdown limpo e monitoramento contínuo de preços em e-commerces.
+Coletor web e monitor de preços escrito em Python com FastAPI, HTTPX, BeautifulSoup4 e SQLite. Faz download de páginas HTML, converte o conteúdo para Markdown, extrai dados estruturados (JSON-LD, OpenGraph e seletores CSS) e acompanha variações de preço em lojas online.
 
-Construído em Python com **FastAPI**, **HTTPX Assíncrono**, **BeautifulSoup4**, **SQLite / PostgreSQL** e **Redis**, o CrawlMesh combina rotação de fingerprints de navegador, pool de proxies com *circuit breaker* e controle de taxa (*Token Bucket Rate Limiter*) por domínio.
+O coletor alterna cabeçalhos de navegador (`User-Agent` e `Sec-CH-UA`), aplica limite de requisições por domínio (token bucket) e controla uma lista de proxies com circuit breaker para isolar endpoints lentos ou fora do ar.
 
----
+## Painel web
 
-## Interface e Operação
+### Extrator (`/?tab=playground`)
+Dispara coletas avulsas para qualquer URL. O retorno aparece ao lado em três formatos: Markdown, JSON com metadados e seletores, ou lista de links encontrados na página. O rodapé do formulário mostra o status HTTP, tempo de resposta, fingerprint e proxy usados na requisição.
 
-### 1. Live Extraction Playground (Markdown, JSON e Seletores CSS)
-Permite disparar extrações em tempo real contra qualquer URL, inspecionando o retorno em Markdown limpo, JSON estruturado (OpenGraph, Schema.org, seletores customizados) ou lista de links, acompanhado da telemetria de latência, fingerprint e nó de saída utilizado.
+![Extrator](docs/screenshots/dashboard_extractor.png)
 
-![Live Extraction Playground](docs/screenshots/dashboard_extractor.png)
+### Preços monitorados (`/?tab=monitors`)
+Lista os produtos cadastrados com preço atual, mínimo e máximo registrados, meta de alerta e histórico recente. Os valores são lidos de blocos `application/ld+json` (`Product`/`Offer`), meta tags `product:price:amount` ou expressões regulares para `BRL` e `USD`.
 
-### 2. Price Intelligence & Alertas de Queda
-Monitora páginas de produtos extraindo preços automaticamente via blocos `application/ld+json` (Schema.org `Product`/`Offer`), meta tags `product:price:amount` ou expressões regulares monetárias (`BRL` / `USD`), mantendo série histórica de variações e sinalizando quando o valor atinge a meta definida.
+![Preços monitorados](docs/screenshots/price_intelligence.png)
 
-![Price Intelligence Monitors](docs/screenshots/price_intelligence.png)
+### Fila e proxies (`/?tab=fleet`)
+Mostra as últimas coletas processadas e o estado dos proxies cadastrados (`CLOSED`, `HALF-OPEN` ou `OPEN`), com contagem de sucessos, falhas e latência média.
 
-### 3. Fila de Workers e Malha de Proxies (Circuit Breaker)
-Acompanha o histórico de jobs processados pelo pool assíncrono com retentativa exponencial (*Exponential Backoff*) e o estado de saúde de cada proxy registrado (`CLOSED`, `HALF-OPEN`, `OPEN`), roteando tráfego pelos nós de menor latência.
+![Fila e proxies](docs/screenshots/worker_fleet.png)
 
-![Worker Queue and Proxy Mesh](docs/screenshots/worker_fleet.png)
-
----
-
-## Arquitetura
+## Estrutura do código
 
 ```mermaid
 flowchart LR
-    Client["Dashboard Web / API Client"] --> Gateway["FastAPI Gateway"]
-    Gateway --> Limiter["Token Bucket Rate Limiter (por Domínio)"]
-    Limiter --> Queue["Async Worker Pool / Redis Queue"]
-    
-    Queue --> Engine["Extraction & Evasion Engine"]
-    
-    subgraph Engine["Extraction & Evasion Engine"]
-        FP["Fingerprint & Sec-CH-UA Rotator"]
-        Proxy["Proxy Pool + Circuit Breaker"]
-        Parser["DOM Cleaner / Markdown / Price Parser"]
-    end
-    
-    Engine --> DB[("SQLite / PostgreSQL")]
+    Client["Painel Web / API"] --> Gateway["FastAPI (main.py)"]
+    Gateway --> Limiter["Rate Limiter por domínio"]
+    Limiter --> Queue["Fila assíncrona"]
+    Queue --> Engine["Coleta e parser"]
+    Engine --> DB[("SQLite")]
 ```
 
-### Componentes Principais
+O módulo `app/engine/fingerprint.py` monta combinações válidas de `User-Agent` (Chrome 131, Firefox 132, Edge 131) com os cabeçalhos `Sec-Ch-Ua`, `Sec-Ch-Ua-Platform` e `Accept-Language`. Em `app/engine/proxy_manager.py`, o gerenciador de proxies calcula a latência média móvel de cada nó, abre o circuito após falhas seguidas e retira o proxy de rotação até o fim do tempo de espera.
 
-- **`app/engine/fingerprint.py`**: Gera pares consistentes de `User-Agent` (Chrome 131, Firefox 132, Edge 131) e cabeçalhos `Sec-Ch-Ua`, `Sec-Ch-Ua-Platform` e `Accept-Language`.
-- **`app/engine/proxy_manager.py`**: Monitora a latência média móvel de cada proxy e abre o circuito automaticamente após falhas consecutivas, isolando proxies degradados por um período de *cooldown*.
-- **`app/engine/rate_limiter.py`**: Implementa o algoritmo *Token Bucket* individualizado por domínio de destino para evitar saturação e bloqueios por excesso de requisições (`HTTP 429`).
-- **`app/engine/extractor.py` & `price_parser.py`**: Remove ruído estrutural (`<script>`, `<style>`, `<nav>`, `<footer>`) gerando Markdown limpo para pipelines de dados/LLMs e extrai valores monetários e disponibilidade de estoque.
+O controle de taxa fica em `app/engine/rate_limiter.py`, que mantém um token bucket por domínio para evitar erros `HTTP 429`. Quando o HTML chega, `app/engine/extractor.py` remove tags de script, estilo e navegação antes de converter o texto para Markdown, enquanto `app/engine/price_parser.py` extrai preços e disponibilidade de estoque.
 
----
+## Como rodar
 
-## Como Executar
-
-O projeto opera em dois modos: **Standalone** (SQLite + fila em memória via `asyncio`, sem dependências externas) ou **Cluster** (via Docker Compose com PostgreSQL e Redis).
-
-### Modo 1: Execução Local Direta (Standalone)
+Localmente, o servidor usa SQLite e uma fila em memória com `asyncio`, sem precisar de serviços externos:
 
 ```bash
 git clone https://github.com/Glawther/CrawlMesh.git
@@ -73,19 +54,17 @@ pip install -r requirements.txt
 python main.py
 ```
 
-Acesse o painel em `http://127.0.0.1:8090` e a documentação interativa OpenAPI em `http://127.0.0.1:8090/docs`.
+O painel abre em `http://127.0.0.1:8090` e a documentação OpenAPI fica em `http://127.0.0.1:8090/docs`.
 
-### Modo 2: Docker Compose (API + Redis + PostgreSQL)
+Para subir com Docker Compose (API, Redis e PostgreSQL):
 
 ```bash
 docker compose up --build -d
 ```
 
----
+## Exemplo de chamada na API
 
-## Exemplo de Uso da API REST
-
-### Extrair uma URL com seletores customizados e detecção de preço
+Requisição para extrair uma página de produto com seletores CSS e leitura de preço:
 
 ```bash
 curl -X POST "http://127.0.0.1:8090/api/v1/crawl" \
@@ -101,7 +80,7 @@ curl -X POST "http://127.0.0.1:8090/api/v1/crawl" \
   }'
 ```
 
-### Resposta (JSON)
+Resposta:
 
 ```json
 {
@@ -121,23 +100,19 @@ curl -X POST "http://127.0.0.1:8090/api/v1/crawl" \
     "source_method": "json-ld"
   },
   "fingerprint_used": "Chrome 131.0 / Windows 10 x64",
-  "proxy_used": "node-br-sp01 (http://189.12.44.10:8080)",
+  "proxy_used": "br-sp-node01 (189.12.44.10:8080)",
   "elapsed_ms": 18.4
 }
 ```
 
----
+## Testes
 
-## Testes Automatizados
-
-A suíte valida a limpeza de HTML para Markdown, extração de dados estruturados JSON-LD, regex monetário (BRL/USD), circuit breaker de proxies, token bucket rate limiter e rotas da API:
+Os testes cobrem a conversão de HTML para Markdown, leitura de JSON-LD e preços em BRL/USD, circuit breaker dos proxies, rate limiter e rotas HTTP:
 
 ```bash
 pytest tests/ -v
 ```
 
----
-
 ## Licença
 
-Distribuído sob a licença MIT.
+MIT.

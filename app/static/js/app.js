@@ -26,12 +26,12 @@ function setPresetUrl(url, mode) {
 function renderJobOutput() {
     const consoleEl = document.getElementById("output-console");
     if (!currentJobResult) {
-        consoleEl.textContent = "No extraction loaded.";
+        consoleEl.textContent = "Nenhuma coleta carregada.";
         return;
     }
 
     if (currentOutputMode === "markdown") {
-        consoleEl.textContent = currentJobResult.markdown || "(No Markdown content extracted)";
+        consoleEl.textContent = currentJobResult.markdown || "(Sem conteúdo em Markdown)";
     } else if (currentOutputMode === "json") {
         const structured = {
             job_id: currentJobResult.job_id,
@@ -49,7 +49,7 @@ function renderJobOutput() {
         const links = currentJobResult.links || [];
         consoleEl.textContent = links.length
             ? links.map((l, i) => `[${i + 1}] ${l}`).join("\n")
-            : "No links extracted.";
+            : "Nenhum link extraído.";
     }
 }
 
@@ -59,16 +59,16 @@ function updateTelemetryPanel(job) {
     document.getElementById("tel-job-id").textContent = job.job_id;
     document.getElementById("tel-http-status").textContent = `${job.http_status || 200} ${job.status}`;
     document.getElementById("tel-latency").textContent = `${job.elapsed_ms} ms`;
-    document.getElementById("tel-fingerprint").textContent = job.fingerprint_used || "Default";
-    document.getElementById("tel-proxy").textContent = job.proxy_used || "direct-egress";
+    document.getElementById("tel-fingerprint").textContent = job.fingerprint_used || "Padrão";
+    document.getElementById("tel-proxy").textContent = job.proxy_used || "direto";
 
     const badge = document.getElementById("out-price-badge");
     if (job.price_intel && job.price_intel.detected) {
-        const stockTxt = job.price_intel.in_stock ? "IN STOCK" : "OUT OF STOCK";
+        const stockTxt = job.price_intel.in_stock ? "EM ESTOQUE" : "SEM ESTOQUE";
         badge.textContent = `${job.price_intel.formatted} (${stockTxt})`;
         badge.className = "badge badge-emerald";
     } else {
-        badge.textContent = `Links: ${job.links_count || 0} | Mode: ${job.mode.toUpperCase()}`;
+        badge.textContent = `Links: ${job.links_count || 0} | Modo: ${job.mode.toUpperCase()}`;
         badge.className = "badge badge-neutral";
     }
     renderJobOutput();
@@ -87,13 +87,13 @@ async function submitCrawl(event) {
         try {
             selectors = JSON.parse(rawSelectors);
         } catch (err) {
-            alert("Invalid JSON in Custom CSS Selectors field.");
+            alert("JSON inválido no campo Seletores CSS.");
             return;
         }
     }
 
     btn.disabled = true;
-    btn.textContent = "Extracting...";
+    btn.textContent = "Extraindo...";
 
     try {
         const res = await fetch("/api/v1/crawl", {
@@ -105,20 +105,20 @@ async function submitCrawl(event) {
         updateTelemetryPanel(data);
         await refreshAllData();
     } catch (err) {
-        console.error("Crawl error:", err);
+        console.error("Erro na coleta:", err);
     } finally {
         btn.disabled = false;
-        btn.textContent = "Execute Crawl";
+        btn.textContent = "Extrair";
     }
 }
 
 function formatBRL(val) {
-    if (val === null || val === undefined) return "—";
+    if (val === null || val === undefined) return "-";
     return Number(val).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 }
 
 function buildSparkline(history) {
-    if (!history || !history.length) return "—";
+    if (!history || !history.length) return "-";
     const prices = history.map((h) => h.price);
     const min = Math.min(...prices);
     const max = Math.max(...prices);
@@ -138,8 +138,8 @@ async function loadMonitors() {
     tbody.innerHTML = monitors
         .map((m) => {
             const alertBadge = m.alert_triggered
-                ? `<span class="badge badge-emerald">BELOW TARGET</span>`
-                : `<span class="badge badge-amber">MONITORING</span>`;
+                ? `<span class="badge badge-emerald">ABAIXO DA META</span>`
+                : `<span class="badge badge-amber">ACIMA DA META</span>`;
             return `
             <tr>
                 <td class="mono">#${m.id}</td>
@@ -154,7 +154,7 @@ async function loadMonitors() {
                 <td>${buildSparkline(m.history)}</td>
                 <td>${alertBadge}</td>
                 <td>
-                    <button class="btn-sm" onclick="checkMonitorNow(${m.id})">Check Now</button>
+                    <button class="btn-sm" onclick="checkMonitorNow(${m.id})">Atualizar agora</button>
                 </td>
             </tr>
         `;
@@ -212,7 +212,7 @@ async function loadJobsAndFleet() {
                 <td><span class="badge badge-neutral">${j.mode}</span></td>
                 <td class="mono text-emerald">${j.http_status}</td>
                 <td class="mono text-cyan">${j.elapsed_ms} ms</td>
-                <td class="mono" style="font-size:11px;color:#94a3b8;">${j.fingerprint_used || "—"}</td>
+                <td class="mono" style="font-size:11px;color:#94a3b8;">${j.fingerprint_used || "-"}</td>
                 <td><span class="badge ${stClass}">${j.status}</span></td>
             </tr>
         `;
@@ -241,11 +241,11 @@ async function loadMetrics() {
     const res = await fetch("/api/v1/metrics");
     const m = await res.json();
     document.getElementById("kpi-total-jobs").textContent = m.total_jobs;
-    document.getElementById("kpi-mode-label").textContent = `Mode: ${m.execution_mode} (${m.active_workers} workers)`;
+    document.getElementById("kpi-mode-label").textContent = `Modo: ${m.execution_mode} (${m.active_workers} workers)`;
     document.getElementById("kpi-success-rate").textContent = `${m.success_rate_pct}%`;
     document.getElementById("kpi-avg-latency").textContent = `${m.avg_latency_ms} ms`;
-    document.getElementById("kpi-monitors").innerHTML = `${m.active_monitors} / <span class="text-amber">${m.alerts_triggered} alerts</span>`;
-    document.getElementById("kpi-proxies").textContent = `${m.healthy_proxies} active`;
+    document.getElementById("kpi-monitors").innerHTML = `${m.active_monitors} / <span class="text-amber">${m.alerts_triggered} alertas</span>`;
+    document.getElementById("kpi-proxies").textContent = `${m.healthy_proxies} ativos`;
 }
 
 async function refreshAllData() {
@@ -253,5 +253,9 @@ async function refreshAllData() {
 }
 
 document.addEventListener("DOMContentLoaded", () => {
+    const tab = new URLSearchParams(window.location.search).get("tab");
+    if (tab && ["playground", "monitors", "fleet"].includes(tab)) {
+        switchTab(tab);
+    }
     refreshAllData();
 });

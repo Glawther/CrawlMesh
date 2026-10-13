@@ -385,7 +385,7 @@ class DatabaseManager:
                 "proxy_used": "br-sp-node01 (189.12.44.10:8080)",
                 "elapsed_ms": 184.6,
                 "retries": 0,
-                "created_at": (now - timedelta(minutes=12)).isoformat(),
+                "created_at": (now - timedelta(minutes=1)).isoformat(),
             },
             {
                 "job_id": "cm-7d31b892",
@@ -395,8 +395,8 @@ class DatabaseManager:
                 "http_status": 200,
                 "mode": "auto",
                 "title": "Hacker News",
-                "description": "Links for the intellectually curious, ranked by developers.",
-                "markdown": "# Hacker News\n\n1. **SQLite in Distributed Systems: Lessons Learned** (sqlite.org)\n2. **High-Throughput Async Crawlers in Python 3.12** (engineering.blog)\n3. **Why Token Bucket Rate Limiting Matters at Scale** (systems.io)",
+                "description": "Notícias e links sobre tecnologia e programação.",
+                "markdown": "# Hacker News\n\n1. **SQLite em produção: o que aprendemos** (sqlite.org)\n2. **Coletores assíncronos em Python 3.12** (engineering.blog)\n3. **Rate limiting por domínio com token bucket** (systems.io)",
                 "extracted_data": {
                     "headings": ["Hacker News"],
                     "meta_tags": {"viewport": "width=device-width, initial-scale=1.0"},
@@ -439,7 +439,7 @@ class DatabaseManager:
                 "proxy_used": "br-sp-node01 (189.12.44.10:8080)",
                 "elapsed_ms": 219.8,
                 "retries": 0,
-                "created_at": (now - timedelta(minutes=2)).isoformat(),
+                "created_at": (now - timedelta(minutes=12)).isoformat(),
             },
         ]
         for j in demo_jobs:
