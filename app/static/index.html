@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>CrawlMesh — Distributed Extraction & Price Intelligence</title>
+    <link rel="stylesheet" href="/static/css/style.css" />
+</head>
+<body>
+    <header class="topbar">
+        <div class="topbar-brand">
+            <div class="brand-badge">CM</div>
+            <div>
+                <div class="brand-title">CrawlMesh <span class="version-tag">v1.0.0</span></div>
+                <div class="brand-subtitle">Distributed Web Extraction &amp; Price Telemetry Engine</div>
+            </div>
+        </div>
+        <div class="topbar-nav">
+            <button class="nav-tab active" data-tab="playground" onclick="switchTab('playground')">Live Extraction Playground</button>
+            <button class="nav-tab" data-tab="monitors" onclick="switchTab('monitors')">Price Intelligence</button>
+            <button class="nav-tab" data-tab="fleet" onclick="switchTab('fleet')">Worker Queue &amp; Proxy Mesh</button>
+            <a href="/docs" target="_blank" class="nav-link-ext">OpenAPI / Swagger ↗</a>
+        </div>
+    </header>
+
+    <main class="container">
+        <!-- Telemetry KPI Strip -->
+        <section class="metrics-strip">
+            <div class="metric-card">
+                <span class="metric-label">JOBS PROCESSED</span>
+                <div class="metric-value" id="kpi-total-jobs">0</div>
+                <span class="metric-sub" id="kpi-mode-label">Mode: standalone</span>
+            </div>
+            <div class="metric-card">
+                <span class="metric-label">SUCCESS RATE</span>
+                <div class="metric-value text-emerald" id="kpi-success-rate">100.0%</div>
+                <span class="metric-sub">2xx / 3xx HTTP responses</span>
+            </div>
+            <div class="metric-card">
+                <span class="metric-label">AVG EXTRACTION LATENCY</span>
+                <div class="metric-value text-cyan" id="kpi-avg-latency">0 ms</div>
+                <span class="metric-sub">DOM + JSON-LD + Markdown</span>
+            </div>
+            <div class="metric-card">
+                <span class="metric-label">PRICE MONITORS / ALERTS</span>
+                <div class="metric-value" id="kpi-monitors">0 / <span class="text-amber">0</span></div>
+                <span class="metric-sub">Active targets below threshold</span>
+            </div>
+            <div class="metric-card">
+                <span class="metric-label">HEALTHY PROXY NODES</span>
+                <div class="metric-value text-emerald" id="kpi-proxies">4 / 4</div>
+                <span class="metric-sub">Circuit Breaker: CLOSED</span>
+            </div>
+        </section>
+
+        <!-- TAB 1: LIVE EXTRACTION PLAYGROUND -->
+        <section id="tab-playground" class="tab-panel active">
+            <div class="grid-playground">
+                <div class="panel">
+                    <div class="panel-header">
+                        <h2>Target Dispatch Configuration</h2>
+                        <span class="badge badge-neutral">Token Bucket Rate Limiter Active</span>
+                    </div>
+                    <form id="crawl-form" onsubmit="submitCrawl(event)">
+                        <div class="form-group">
+                            <label for="crawl-url">Target URL</label>
+                            <div class="input-row">
+                                <input
+                                    type="url"
+                                    id="crawl-url"
+                                    value="https://kabum.com.br/produto/rtx-4070-super-12gb"
+                                    placeholder="https://..."
+                                    required
+                                />
+                                <button type="submit" class="btn btn-primary" id="btn-run-crawl">Execute Crawl</button>
+                            </div>
+                        </div>
+
+                        <div class="preset-bar">
+                            <span class="preset-caption">Quick Targets:</span>
+                            <button type="button" class="btn-chip" onclick="setPresetUrl('https://kabum.com.br/produto/rtx-4070-super-12gb', 'price')">RTX 4070 Super (JSON-LD Price)</button>
+                            <button type="button" class="btn-chip" onclick="setPresetUrl('https://dell.com/pt-br/shop/alienware-27-aw2724dm', 'price')">Monitor Alienware 27" (Meta Price)</button>
+                            <button type="button" class="btn-chip" onclick="setPresetUrl('https://news.ycombinator.com', 'auto')">Hacker News (Clean Markdown)</button>
+                        </div>
+
+                        <div class="form-row-2">
+                            <div class="form-group">
+                                <label for="crawl-mode">Extraction Pipeline Mode</label>
+                                <select id="crawl-mode">
+                                    <option value="auto">Auto (Clean Markdown + OpenGraph + Price)</option>
+                                    <option value="price">Price Intelligence (Schema.org + Currency Regex)</option>
+                                    <option value="selectors">Custom CSS Selectors Map</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="crawl-priority">Queue Priority</label>
+                                <select id="crawl-priority">
+                                    <option value="HIGH">HIGH (Immediate Dispatch)</option>
+                                    <option value="NORMAL" selected>NORMAL (Standard Pool)</option>
+                                    <option value="LOW">LOW (Background Batch)</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="crawl-selectors">Custom CSS Selectors (JSON Map - optional)</label>
+                            <input
+                                type="text"
+                                id="crawl-selectors"
+                                placeholder='{"headline": "h1", "price": ".price-tag"}'
+                                value='{"headline": "h1", "price": ".price-tag"}'
+                            />
+                        </div>
+                    </form>
+
+                    <div class="telemetry-summary" id="last-job-telemetry">
+                        <div class="telemetry-item">
+                            <span class="t-key">JOB ID</span>
+                            <span class="t-val mono" id="tel-job-id">cm-9f82a104</span>
+                        </div>
+                        <div class="telemetry-item">
+                            <span class="t-key">HTTP STATUS</span>
+                            <span class="t-val text-emerald mono" id="tel-http-status">200 OK</span>
+                        </div>
+                        <div class="telemetry-item">
+                            <span class="t-key">LATENCY</span>
+                            <span class="t-val text-cyan mono" id="tel-latency">184.6 ms</span>
+                        </div>
+                        <div class="telemetry-item">
+                            <span class="t-key">FINGERPRINT</span>
+                            <span class="t-val mono" id="tel-fingerprint">Chrome 131.0 / Windows 10 x64</span>
+                        </div>
+                        <div class="telemetry-item">
+                            <span class="t-key">EGRESS NODE</span>
+                            <span class="t-val mono" id="tel-proxy">br-sp-node01 (189.12.44.10:8080)</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Output Inspector -->
+                <div class="panel">
+                    <div class="panel-header">
+                        <div class="subtab-group">
+                            <button class="subtab active" data-out="markdown" onclick="switchOutputView('markdown')">Clean Markdown</button>
+                            <button class="subtab" data-out="json" onclick="switchOutputView('json')">Structured JSON</button>
+                            <button class="subtab" data-out="links" onclick="switchOutputView('links')">Extracted Links</button>
+                        </div>
+                        <span class="badge badge-emerald" id="out-price-badge">R$ 3.849,90 (IN STOCK)</span>
+                    </div>
+                    <pre class="code-viewer" id="output-console">Loading extraction payload...</pre>
+                </div>
+            </div>
+        </section>
+
+        <!-- TAB 2: PRICE INTELLIGENCE MONITORS -->
+        <section id="tab-monitors" class="tab-panel">
+            <div class="panel">
+                <div class="panel-header">
+                    <div>
+                        <h2>Tracked E-Commerce Products &amp; Target Thresholds</h2>
+                        <p class="panel-desc">Automated price scraping via JSON-LD Offer schemas, OpenGraph tags, and BRL/USD currency parsers.</p>
+                    </div>
+                    <button class="btn btn-primary" onclick="toggleNewMonitorForm()">+ Add Product Monitor</button>
+                </div>
+
+                <form id="new-monitor-form" class="inline-form hidden" onsubmit="submitNewMonitor(event)">
+                    <input type="text" id="mon-name" placeholder="Product Name (e.g. Ryzen 7 7800X3D)" required />
+                    <input type="url" id="mon-url" placeholder="Product URL" required />
+                    <input type="text" id="mon-store" placeholder="Store (e.g. Terabyte)" required />
+                    <input type="number" step="0.01" id="mon-target" placeholder="Target Price (R$)" required />
+                    <button type="submit" class="btn btn-primary">Save Target</button>
+                </form>
+
+                <div class="table-wrap">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Product</th>
+                                <th>Store</th>
+                                <th>Current Price</th>
+                                <th>Min / Max</th>
+                                <th>Target Alert</th>
+                                <th>Price Trend</th>
+                                <th>Status</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="monitors-tbody"></tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <!-- TAB 3: WORKER QUEUE & PROXY MESH -->
+        <section id="tab-fleet" class="tab-panel">
+            <div class="grid-fleet">
+                <div class="panel">
+                    <div class="panel-header">
+                        <h2>Recent Extraction Queue Log</h2>
+                        <span class="badge badge-neutral">Exponential Backoff Enabled</span>
+                    </div>
+                    <div class="table-wrap">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>Job ID</th>
+                                    <th>Domain</th>
+                                    <th>Mode</th>
+                                    <th>HTTP</th>
+                                    <th>Latency</th>
+                                    <th>Fingerprint</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody id="jobs-tbody"></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="panel">
+                    <div class="panel-header">
+                        <h2>Proxy Mesh &amp; Circuit Breakers</h2>
+                        <span class="badge badge-emerald">Weighted Latency Routing</span>
+                    </div>
+                    <div class="table-wrap">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>Node ID</th>
+                                    <th>Endpoint</th>
+                                    <th>Region</th>
+                                    <th>Latency</th>
+                                    <th>OK / Err</th>
+                                    <th>Circuit</th>
+                                </tr>
+                            </thead>
+                            <tbody id="proxies-tbody"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <script src="/static/js/app.js"></script>
+</body>
+</html>

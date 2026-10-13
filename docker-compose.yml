@@ -1,0 +1,45 @@
+version: "3.9"
+
+services:
+  crawlmesh-api:
+    build: .
+    container_name: crawlmesh_api
+    ports:
+      - "8090:8090"
+    environment:
+      - CRAWLMESH_MODE=cluster
+      - CRAWLMESH_HOST=0.0.0.0
+      - CRAWLMESH_PORT=8090
+      - CRAWLMESH_WORKERS=8
+      - CRAWLMESH_REDIS_URL=redis://redis:6379/0
+      - CRAWLMESH_POSTGRES_DSN=postgresql://crawlmesh:crawlmesh@postgres:5432/crawlmesh
+    volumes:
+      - crawlmesh_storage:/app/storage
+    depends_on:
+      - redis
+      - postgres
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    container_name: crawlmesh_redis
+    ports:
+      - "6379:6379"
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: crawlmesh_postgres
+    environment:
+      - POSTGRES_USER=crawlmesh
+      - POSTGRES_PASSWORD=crawlmesh
+      - POSTGRES_DB=crawlmesh
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    restart: unless-stopped
+
+volumes:
+  crawlmesh_storage:
+  postgres_data:
